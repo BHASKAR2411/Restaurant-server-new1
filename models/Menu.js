@@ -9,15 +9,15 @@ const Menu = sequelize.define('Menu', {
     primaryKey: true,
   },
   category: {
-    type: DataTypes.STRING, // e.g., Appetizer, Main Course
+    type: DataTypes.STRING,
     allowNull: false,
   },
   name: {
-    type: DataTypes.STRING, // e.g., Chicken Tikka
+    type: DataTypes.STRING,
     allowNull: false,
   },
   isVeg: {
-    type: DataTypes.BOOLEAN, // true for veg, false for non-veg
+    type: DataTypes.BOOLEAN,
     allowNull: false,
   },
   price: {
@@ -34,6 +34,11 @@ const Menu = sequelize.define('Menu', {
       model: User,
       key: 'id',
     },
+  },
+  isEnabled: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true, // Items are enabled by default
   },
 }, {
   timestamps: true,

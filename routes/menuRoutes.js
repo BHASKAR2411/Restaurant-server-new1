@@ -11,11 +11,25 @@ const menuSchema = yup.object().shape({
   name: yup.string().required('Name is required'),
   isVeg: yup.boolean().required('Veg/non-veg status is required'),
   price: yup.number().positive('Price must be positive').required('Price is required'),
+  isEnabled: yup.boolean().optional(), // Allow isEnabled for updates
 });
 
 router.post('/', auth, validate(menuSchema), createMenuItem);
-router.get('/', getMenuItems); // Public for clients, filtered by restaurantId
+router.get('/', getMenuItems);
 router.put('/:id', auth, validate(menuSchema), updateMenuItem);
 router.delete('/:id', auth, deleteMenuItem);
+router.put('/:id/toggle', auth, async (req, res) => {
+  try {
+    const menuItem = await require('../models/Menu').findByPk(req.params.id);
+    if (!menuItem) {
+      return res.status(404).json({ error: 'Menu item not found' });
+    }
+    await menuItem.update({ isEnabled: !menuItem.isEnabled });
+    res.json(menuItem);
+  } catch (error) {
+    console.error('Error toggling menu item:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 module.exports = router;

@@ -25,7 +25,7 @@ const User = require('../models/User');
        if (planType === 'free_trial') {
          const startDate = new Date();
          const endDate = new Date();
-         endDate.setDate(startDate.getDate() + 15);
+         endDate.setDate(startDate.getDate() + 10);
 
          user.planType = planType;
          user.planStartDate = startDate;
@@ -47,9 +47,9 @@ const User = require('../models/User');
        } else {
          // For paid plans, return plan details for frontend to initiate payment
          const planDetails = {
-           '1_month': { amount: 199, durationDays: 30 },
-           '6_months': { amount: 999, durationDays: 180 },
-           '1_year': { amount: 1650, durationDays: 365 },
+           '1_month': { amount: 599, durationDays: 30 },
+           '6_months': { amount: 2999, durationDays: 180 },
+           '1_year': { amount: 4499, durationDays: 365 },
          };
          res.json({
            message: 'Proceed to payment',

@@ -7,7 +7,13 @@ exports.createOrder = async (req, res) => {
   try {
     const resolvedRestaurantId = restaurantId || items[0]?.restaurantId || req.query.restaurantId;
     if (!resolvedRestaurantId || isNaN(resolvedRestaurantId) || Number(resolvedRestaurantId) <= 0) {
-      return res.status(400).json({ message: 'Restaurant ID is required' });
+      return res.status(400).json({ message: 'Restaurant ID is required and must be a valid number' });
+    }
+
+    // Validate restaurantId exists in Users table
+    const user = await User.findByPk(Number(resolvedRestaurantId));
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid restaurant ID: Restaurant not found' });
     }
 
     if (!tableNo || !Number.isInteger(tableNo) || tableNo <= 0) {
@@ -40,17 +46,19 @@ exports.createOrder = async (req, res) => {
       tableNo,
       items,
       total,
-      userId: Number(resolvedRestaurantId),
+      restaurantId: Number(resolvedRestaurantId),
       status: 'live',
     });
 
-    // Emit WebSocket event globally
-    console.log('Emitting newOrder globally, Order ID:', order.id, 'userId:', resolvedRestaurantId);
+    console.log('Emitting newOrder globally, Order ID:', order.id, 'restaurantId:', resolvedRestaurantId);
     global.io.emit('newOrder', order);
 
     res.status(201).json(order);
   } catch (error) {
     console.error('Error creating order:', error);
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(400).json({ message: 'Invalid restaurant ID: Restaurant not found' });
+    }
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -58,7 +66,7 @@ exports.createOrder = async (req, res) => {
 exports.getLiveOrders = async (req, res) => {
   try {
     const orders = await Order.findAll({
-      where: { userId: req.user.id, status: 'live' },
+      where: { restaurantId: req.user.id, status: 'live' },
     });
     res.json(orders);
   } catch (error) {
@@ -70,7 +78,7 @@ exports.getLiveOrders = async (req, res) => {
 exports.getRecurringOrders = async (req, res) => {
   try {
     const orders = await Order.findAll({
-      where: { userId: req.user.id, status: 'recurring' },
+      where: { restaurantId: req.user.id, status: 'recurring' },
     });
     res.json(orders);
   } catch (error) {
@@ -82,7 +90,7 @@ exports.getRecurringOrders = async (req, res) => {
 exports.getPastOrders = async (req, res) => {
   try {
     const orders = await Order.findAll({
-      where: { userId: req.user.id, status: 'past' },
+      where: { restaurantId: req.user.id, status: 'past' },
     });
     res.json(orders);
   } catch (error) {
@@ -94,7 +102,7 @@ exports.getPastOrders = async (req, res) => {
 exports.moveToRecurring = async (req, res) => {
   const { id } = req.params;
   try {
-    const order = await Order.findOne({ where: { id, userId: req.user.id } });
+    const order = await Order.findOne({ where: { id, restaurantId: req.user.id } });
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
@@ -109,16 +117,73 @@ exports.moveToRecurring = async (req, res) => {
 };
 
 exports.completeOrder = async (req, res) => {
-  const { id } = req.params;
+  const { tableNo, discount, message, serviceCharge, gstRate, gstType } = req.body;
   try {
-    const order = await Order.findOne({ where: { id, userId: req.user.id } });
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
+    const orders = await Order.findAll({
+      where: { tableNo, restaurantId: req.user.id, status: 'recurring' },
+    });
+
+    if (!orders.length) {
+      return res.status(404).json({ message: 'No recurring orders found for this table' });
     }
 
-    order.status = 'past';
-    await order.save();
-    res.json(order);
+    let mergedItems = [];
+    orders.forEach(order => {
+      mergedItems = [...mergedItems, ...order.items];
+    });
+
+    const groupedItems = mergedItems.reduce((acc, item) => {
+      const existingItem = acc.find(i => i.name === item.name && i.price === item.price);
+      if (existingItem) {
+        existingItem.quantity += item.quantity;
+      } else {
+        acc.push({ ...item });
+      }
+      return acc;
+    }, []);
+
+    let subtotal = groupedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    let discountAmount = discount ? (subtotal * discount) / 100 : 0;
+    let serviceChargeAmount = parseFloat(serviceCharge) || 0;
+    let gstAmount = 0;
+
+    if (gstType === 'inclusive') {
+      subtotal = subtotal / (1 + parseFloat(gstRate) / 100);
+      discountAmount = discount ? (subtotal * discount) / 100 : 0;
+      gstAmount = (subtotal - discountAmount) * (parseFloat(gstRate) / 100);
+    } else {
+      subtotal = subtotal - discountAmount;
+      gstAmount = subtotal * (parseFloat(gstRate) / 100);
+    }
+
+    const finalTotal = subtotal - discountAmount + gstAmount + serviceChargeAmount;
+
+    const receiptDetails = {
+      items: groupedItems,
+      subtotal,
+      discount: discountAmount,
+      serviceCharge: serviceChargeAmount,
+      gstRate: parseFloat(gstRate),
+      gstType,
+      gstAmount,
+      total: finalTotal,
+      message,
+    };
+
+    await Order.update(
+      {
+        status: 'past',
+        receiptDetails,
+        serviceCharge: serviceChargeAmount,
+        gstRate: parseFloat(gstRate),
+        gstType,
+        discount,
+        message,
+      },
+      { where: { tableNo, restaurantId: req.user.id, status: 'recurring' } }
+    );
+
+    res.json({ message: 'Orders completed and receipt saved', receiptDetails });
   } catch (error) {
     console.error('Error completing order:', error);
     res.status(500).json({ message: 'Server error' });
@@ -133,14 +198,14 @@ exports.getOrderStats = async (req, res) => {
 
     const dailyOrders = await Order.count({
       where: {
-        userId: req.user.id,
+        restaurantId: req.user.id,
         createdAt: { [Op.gte]: today },
       },
     });
 
     const monthlyOrders = await Order.count({
       where: {
-        userId: req.user.id,
+        restaurantId: req.user.id,
         createdAt: { [Op.gte]: monthStart },
       },
     });
@@ -155,7 +220,7 @@ exports.getOrderStats = async (req, res) => {
 exports.deleteOrder = async (req, res) => {
   const { id } = req.params;
   try {
-    const order = await Order.findOne({ where: { id, userId: req.user.id } });
+    const order = await Order.findOne({ where: { id, restaurantId: req.user.id } });
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
@@ -185,6 +250,22 @@ exports.getRestaurantDetails = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching restaurant details:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.reprintReceipt = async (req, res) => {
+  try {
+    const { tableNo } = req.params;
+    const orders = await Order.findAll({
+      where: { tableNo, restaurantId: req.user.id, status: 'past' },
+    });
+    if (!orders.length || !orders[0].receiptDetails) {
+      return res.status(404).json({ message: 'No receipt found for this table' });
+    }
+    res.json(orders[0].receiptDetails);
+  } catch (error) {
+    console.error('Error fetching receipt:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

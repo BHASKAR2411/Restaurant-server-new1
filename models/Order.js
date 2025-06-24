@@ -12,7 +12,7 @@ const Order = sequelize.define('Order', {
     type: DataTypes.INTEGER,
     allowNull: false,
     validate: {
-      min: 1,
+      min: 0, // Changed from min: 1 to allow counter delivery
     },
   },
   items: {
@@ -34,7 +34,7 @@ const Order = sequelize.define('Order', {
       isIn: [['live', 'recurring', 'past']],
     },
   },
-  userId: {
+  restaurantId: {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
@@ -42,10 +42,34 @@ const Order = sequelize.define('Order', {
       key: 'id',
     },
   },
+  receiptDetails: {
+    type: DataTypes.JSON,
+    allowNull: true,
+  },
+  serviceCharge: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+  },
+  gstRate: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+  },
+  gstType: {
+    type: DataTypes.ENUM('inclusive', 'exclusive'),
+    allowNull: true,
+  },
+  discount: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+  },
+  message: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 }, {
   timestamps: true,
 });
 
-Order.belongsTo(User, { foreignKey: 'userId' });
+Order.belongsTo(User, { foreignKey: 'restaurantId' });
 
 module.exports = Order;
