@@ -10,6 +10,15 @@ exports.createOrder = async (req, res) => {
     const resolvedRestaurantId = restaurantId || items[0]?.restaurantId || req.query.restaurantId;
     if (!resolvedRestaurantId || isNaN(resolvedRestaurantId) || Number(resolvedRestaurantId) <= 0) {
       return res.status(400).json({ message: 'Restaurant ID is required and must be a valid number' });
+<<<<<<< HEAD
+=======
+    }
+
+    // Validate restaurantId exists in Users table
+    const user = await User.findByPk(Number(resolvedRestaurantId));
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid restaurant ID: Restaurant not found' });
+>>>>>>> 72190aeb0c040edda4804ec3f70762d4fbd05c0a
     }
     // Validate restaurantId exists in Users table
     const user = await User.findByPk(Number(resolvedRestaurantId));
@@ -76,6 +85,10 @@ exports.createOrder = async (req, res) => {
       restaurantId: Number(resolvedRestaurantId),
       status: 'live',
     });
+<<<<<<< HEAD
+=======
+
+>>>>>>> 72190aeb0c040edda4804ec3f70762d4fbd05c0a
     console.log('Emitting newOrder globally, Order ID:', order.id, 'restaurantId:', resolvedRestaurantId);
     global.io.emit('newOrder', order);
     res.status(201).json(order);
@@ -146,15 +159,29 @@ exports.completeOrder = async (req, res) => {
     const orders = await Order.findAll({
       where: { tableNo, restaurantId: req.user.id, status: 'recurring' },
     });
+<<<<<<< HEAD
     if (!orders.length) {
       return res.status(404).json({ message: 'No recurring orders found for this table' });
     }
+=======
+
+    if (!orders.length) {
+      return res.status(404).json({ message: 'No recurring orders found for this table' });
+    }
+
+>>>>>>> 72190aeb0c040edda4804ec3f70762d4fbd05c0a
     let mergedItems = [];
     orders.forEach(order => {
       mergedItems = [...mergedItems, ...order.items];
     });
+<<<<<<< HEAD
     const groupedItems = mergedItems.reduce((acc, item) => {
       const existingItem = acc.find(i => i.name === item.name && i.price === item.price && i.portion === item.portion);
+=======
+
+    const groupedItems = mergedItems.reduce((acc, item) => {
+      const existingItem = acc.find(i => i.name === item.name && i.price === item.price);
+>>>>>>> 72190aeb0c040edda4804ec3f70762d4fbd05c0a
       if (existingItem) {
         existingItem.quantity += item.quantity;
       } else {
@@ -162,10 +189,18 @@ exports.completeOrder = async (req, res) => {
       }
       return acc;
     }, []);
+<<<<<<< HEAD
+=======
+
+>>>>>>> 72190aeb0c040edda4804ec3f70762d4fbd05c0a
     let subtotal = groupedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
     let discountAmount = discount ? (subtotal * discount) / 100 : 0;
     let serviceChargeAmount = parseFloat(serviceCharge) || 0;
     let gstAmount = 0;
+<<<<<<< HEAD
+=======
+
+>>>>>>> 72190aeb0c040edda4804ec3f70762d4fbd05c0a
     if (gstType === 'inclusive') {
       subtotal = subtotal / (1 + parseFloat(gstRate) / 100);
       discountAmount = discount ? (subtotal * discount) / 100 : 0;
@@ -174,7 +209,13 @@ exports.completeOrder = async (req, res) => {
       subtotal = subtotal - discountAmount;
       gstAmount = subtotal * (parseFloat(gstRate) / 100);
     }
+<<<<<<< HEAD
     const finalTotal = subtotal - discountAmount + gstAmount + serviceChargeAmount;
+=======
+
+    const finalTotal = subtotal - discountAmount + gstAmount + serviceChargeAmount;
+
+>>>>>>> 72190aeb0c040edda4804ec3f70762d4fbd05c0a
     const receiptDetails = {
       items: groupedItems,
       subtotal,
@@ -186,6 +227,10 @@ exports.completeOrder = async (req, res) => {
       total: finalTotal,
       message,
     };
+<<<<<<< HEAD
+=======
+
+>>>>>>> 72190aeb0c040edda4804ec3f70762d4fbd05c0a
     await Order.update(
       {
         status: 'past',
@@ -198,6 +243,10 @@ exports.completeOrder = async (req, res) => {
       },
       { where: { tableNo, restaurantId: req.user.id, status: 'recurring' } }
     );
+<<<<<<< HEAD
+=======
+
+>>>>>>> 72190aeb0c040edda4804ec3f70762d4fbd05c0a
     res.json({ message: 'Orders completed and receipt saved', receiptDetails });
   } catch (error) {
     console.error('Error completing order:', error);
@@ -278,6 +327,10 @@ exports.reprintReceipt = async (req, res) => {
     console.error('Error fetching receipt:', error);
     res.status(500).json({ message: 'Server error' });
   }
+<<<<<<< HEAD
 };
 
 module.exports = exports;
+=======
+};
+>>>>>>> 72190aeb0c040edda4804ec3f70762d4fbd05c0a

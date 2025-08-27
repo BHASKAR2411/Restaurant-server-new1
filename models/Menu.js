@@ -61,7 +61,11 @@ const Menu = sequelize.define('Menu', {
   isEnabled: {
     type: DataTypes.BOOLEAN,
     allowNull: false,
+<<<<<<< HEAD
     defaultValue: true,
+=======
+    defaultValue: true, // Items are enabled by default
+>>>>>>> 72190aeb0c040edda4804ec3f70762d4fbd05c0a
   },
 }, {
   timestamps: true,

@@ -12,6 +12,7 @@ const menuSchema = yup.object().shape({
   name: yup.string().required('Name is required'),
   isVeg: yup.boolean().required('Veg/non-veg status is required'),
   price: yup.number().positive('Price must be positive').required('Price is required'),
+<<<<<<< HEAD
   hasHalf: yup.boolean().optional().default(false),
   halfPrice: yup.number().when('hasHalf', {
     is: true,
@@ -19,6 +20,9 @@ const menuSchema = yup.object().shape({
     otherwise: (schema) => schema.nullable(),
   }),
   isEnabled: yup.boolean().optional(),
+=======
+  isEnabled: yup.boolean().optional(), // Allow isEnabled for updates
+>>>>>>> 72190aeb0c040edda4804ec3f70762d4fbd05c0a
 });
 
 router.post('/', auth, validate(menuSchema), createMenuItem);
